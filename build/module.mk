@@ -9,8 +9,10 @@ SOURCE_PATH ?= $(MODULE_PATH)
 include $(MODULE_PATH)/import.mk
 
 # FIXME: find a better place for this
-ifneq (,$(filter $(PLATFORM_ID),12 13 14))
+# Ensure soft-device is enabled for non-bootloader builds 
+ifneq (,$(filter $(PLATFORM_ID),12 13 14)) # Is a mesh platform
 ifneq ("$(BOOTLOADER_MODULE)","1")
+# soft device present in all firmwares except the bootloader
 export SOFTDEVICE_PRESENT=y
 CFLAGS += -DSOFTDEVICE_PRESENT=1
 ASFLAGS += -DSOFTDEVICE_PRESENT=1
@@ -92,6 +94,7 @@ ALLDEPS += $(addprefix $(BUILD_PATH)/, $(CPPSRC:.cpp=.o.d))
 ALLDEPS += $(addprefix $(BUILD_PATH)/, $(patsubst $(COMMON_BUILD)/arm/%,%,$(ASRC:.S=.o.d)))
 
 CLOUD_FLASH_URL ?= https://api.spark.io/v1/devices/$(SPARK_CORE_ID)\?access_token=$(SPARK_ACCESS_TOKEN)
+CLOUD_FLASH_URL ?= https://api.particle.io/v1/devices/$(SPARK_CORE_ID)\?access_token=$(SPARK_ACCESS_TOKEN)
 
 # All Target
 all: prebuild $(MAKE_DEPENDENCIES) $(TARGET) postbuild
@@ -104,6 +107,33 @@ exe: $(TARGET_BASE)$(EXECUTABLE_EXTENSION)
 	@echo Built x-compile executable at $(TARGET_BASE)$(EXECUTABLE_EXTENSION)
 none:
 	;
+
+ifeq (,$(INCLUDES_FILE))
+# top-level invocation, so remove the file first and echo the filename
+INCLUDES_PREBUILD=create_includes
+endif
+
+ifneq (,$(filter $(MAKECMDGOALS),includes))
+SUBDIR_GOALS=includes
+endif
+
+# the full path to the include list file producted. 
+# Cannot be relative since it's relative to the module folder, and
+# different modules are in different directories.
+INCLUDES_FILE?=$(abspath $(TARGET_BASE).includes.txt)
+
+includes: $(INCLUDES_PREBUILD) $(INCLUDES_FILE) $(MAKE_DEPENDENCIES)	
+	$(VERBOSE)$(SORT) $(INCLUDES_FILE) > $(INCLUDES_FILE).uniq
+	$(VERBOSE)$(UNIQ) $(INCLUDES_FILE).uniq $(INCLUDES_FILE)
+	$(VERBOSE)$(RM) $(INCLUDES_FILE).uniq
+	
+create_includes: 
+	$(VERBOSE)$(MKDIR) $(dir $(INCLUDES_FILE))
+	$(VERBOSE)$(RM) $(INCLUDES_FILE)
+	echo $(INCLUDES_FILE)
+
+RECURSIVE_VARIABLES+=INCLUDES_FILE SUBDIR_GOALS
+# ensure the includes file remains constant and that the include target is propagated to submodules
 
 st-flash: $(MAKE_DEPENDENCIES) $(TARGET_BASE).bin
 	@echo Flashing $(lastword $^) using st-flash to address $(PLATFORM_DFU)
@@ -227,7 +257,6 @@ endif
 	$(VERBOSE)mv $@.pre_crc $@
 	$(call echo,)
 
-
 $(TARGET_BASE).elf : $(ALLOBJ) $(LIB_DEPS) $(LINKER_DEPS)
 	$(call echo,'Building target: $@')
 	$(call echo,'Invoking: ARM GCC C++ Linker')
@@ -241,7 +270,6 @@ $(TARGET_BASE)$(EXECUTABLE_EXTENSION) : $(ALLOBJ) $(LIB_DEPS) $(LINKER_DEPS)
 	$(VERBOSE)$(MKDIR) $(dir $@)
 	$(VERBOSE)$(CCACHE) $(CPP) $(CFLAGS) $(ALLOBJ) --output $@ $(LDFLAGS)
 	$(call echo,)
-
 
 # Tool invocations
 $(TARGET_BASE).a : $(ALLOBJ)
@@ -303,7 +331,8 @@ clean: clean_deps
 	$(VERBOSE)$(RMDIR) $(BUILD_PATH)
 	$(call,echo,)
 
-.PHONY: all prebuild postbuild none elf bin hex size program-dfu program-cloud st-flash program-serial
+.PHONY: all prebuild postbuild none elf bin hex size program-dfu program-cloud st-flash program-serial 
+.PHONY: includes create_includes $(INCLUDES_FILE)
 .SECONDARY:
 
 # Disable implicit builtin rules
@@ -318,4 +347,14 @@ ifneq ("MAKECMDGOALS","clean")
 -include $(ALLDEPS)
 endif
 
+define newline
+
+
+endef
+INCLUDE_DIRS_LIST = @$(patsubst %,echo "%" >> $(INCLUDES_FILE) &&,$(realpath $(INCLUDE_DIRS))) true
+# have to export so that the newlines don't get output in the shell invocation (they then apppear as separate commands)
+export INCLUDE_DIRS_LIST
+
+$(INCLUDES_FILE) :
+	$(INCLUDE_DIRS_LIST)
 
