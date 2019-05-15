@@ -21,9 +21,12 @@
  *  This file is part of mbed TLS (https://tls.mbed.org)
  */
 
-#if PLATFORM_ID == 6 || PLATFORM_ID == 8
+#include "hal_platform.h"
+
+#if !HAL_PLATFORM_CLOUD_UDP && HAL_PLATFORM_WICED
 #include "mbedtls_config_photon.h"
 #else
+
 
 /*
  * This set of compile-time options may be used to enable
@@ -1621,6 +1624,8 @@
  * This module enables the AES-CCM ciphersuites, if other requisites are
  * enabled as well.
  */
+
+
 #define MBEDTLS_CCM_C
 
 /**
