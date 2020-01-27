@@ -34,96 +34,81 @@
 #include "eckeygen.h"
 #include <limits>
 #include "logging.h"
+#include "protocol_mixin.h"
 
 namespace particle {
 namespace protocol {
 
 
-class DTLSProtocol : public Protocol
+class DTLSProtocol : public ProtocolMixin<DTLSProtocol, Protocol>
 {
-	CoAPChannel<CoAPReliableChannel<DTLSMessageChannel, decltype(SparkCallbacks::millis)>> channel;
+    friend class ProtocolMixin<DTLSProtocol, Protocol>;
 
-	static void handle_seed(const uint8_t* data, size_t len)
-	{
+    CoAPChannel<CoAPReliableChannel<DTLSMessageChannel, decltype(SparkCallbacks::millis)>> channel;
 
-	}
 
-	uint8_t device_id[12];
+    static void handle_seed(const uint8_t* data, size_t len)
+    {
+
+    }
+
+    uint8_t device_id[12];
 
 public:
     // todo - this a duplicate of LightSSLProtocol - factor out
 
-	DTLSProtocol() : Protocol(channel) {}
+    DTLSProtocol() : ProtocolMixin(channel) {}
 
-	void init(const char *id,
-	          const SparkKeys &keys,
-	          const SparkCallbacks &callbacks,
-	          const SparkDescriptor &descriptor) override;
+    void init(const char *id,
+              const SparkKeys &keys,
+              const SparkCallbacks &callbacks,
+              const SparkDescriptor &descriptor) override;
 
-	size_t build_hello(Message& message, uint8_t flags) override
-	{
-		product_details_t deets;
-		deets.size = sizeof(deets);
-		get_product_details(deets);
-		size_t len = Messages::hello(message.buf(), 0,
-				flags, PLATFORM_ID, deets.product_id,
-				deets.product_version, true,
-				device_id, sizeof(device_id));
-		return len;
-	}
+    size_t build_hello(Message& message, uint8_t flags) override
+    {
+        product_details_t deets;
+        deets.size = sizeof(deets);
+        get_product_details(deets);
+        size_t len = Messages::hello(message.buf(), 0,
+                flags, PLATFORM_ID, deets.product_id,
+                deets.product_version, true,
+                device_id, sizeof(device_id));
+        return len;
+    }
 
-	virtual int command(ProtocolCommands::Enum command, uint32_t data) override
-	{
-		int result = UNKNOWN;
-		switch (command)
-		{
-		case ProtocolCommands::SLEEP:
-			result = wait_confirmable();
-			break;
-		case ProtocolCommands::DISCONNECT:
-			result = wait_confirmable();
-			ack_handlers.clear();
-			break;
-		case ProtocolCommands::WAKE:
-			wake();
-			result = NO_ERROR;
-			break;
-		case ProtocolCommands::TERMINATE:
-			ack_handlers.clear();
-			result = NO_ERROR;
-			break;
-		case ProtocolCommands::FORCE_PING: {
-			if (!pinger.is_expecting_ping_ack()) {
-				LOG(INFO, "Forcing a cloud ping");
-				pinger.process(std::numeric_limits<system_tick_t>::max(), [this] {
-					return ping(true);
-				});
-			}
-			break;
-		}
-		}
-		return result;
-	}
+    void wake()
+    {
+        ping();
+    }
 
-	int get_status(protocol_status* status) const override {
-		SPARK_ASSERT(status);
-		status->flags = 0;
-		if (channel.has_unacknowledged_client_requests()) {
-			status->flags |= PROTOCOL_STATUS_HAS_PENDING_CLIENT_MESSAGES;
-		}
-		return NO_ERROR;
-	}
+    int get_status(protocol_status* status) const override {
+        SPARK_ASSERT(status);
+        status->flags = 0;
+        if (channel.has_unacknowledged_client_requests()) {
+            status->flags |= PROTOCOL_STATUS_HAS_PENDING_CLIENT_MESSAGES;
+        }
+        return NO_ERROR;
+    }
 
+    bool has_unacknowledged_requests() {
+        return channel.has_unacknowledged_requests();
+    }
 
-	/**
-	 * Ensures that all outstanding sent coap messages have been acknowledged.
-	 */
-	int wait_confirmable(uint32_t timeout=60000);
+    void log_unacknowledged_requests() {
+        LOG(INFO, "All Confirmed messages sent: client(%s) server(%s)",
+            channel.client_messages().has_messages() ? "no" : "yes",
+            channel.server_messages().has_unacknowledged_requests() ? "no" : "yes");
+    }
 
-	void wake()
-	{
-		ping();
-	}
+    void clear_unacknowledged_requests() {
+        // this is empty because the original DTLSProtocol::wait_confirmable method did not clear unacknowledged requests after a timeout
+        // this should be reviewed and reconsidered so we are sure this is the correct behavior.
+        // ack_handlers.clear();
+    }
+
+    bool cancel_message(message_handle_t msg) {
+        return channel.cancel_message(msg);
+    }
 };
 
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "protocol_defs.h"
 #include "message_channel.h"
 #include "service_debug.h"
 #include "protocol_defs.h"
@@ -27,6 +28,7 @@ namespace protocol
  */
 class Protocol
 {
+protected:
 	/**
 	 * The message channel that sends and receives message packets.
 	 */
@@ -296,6 +298,13 @@ protected:
 
 	uint32_t application_state_checksum();
 
+
+
+    /**
+     * Ensures that all outstanding sent coap messages have been acknowledged.
+     */
+    int wait_confirmable(uint32_t timeout=60000, uint32_t minimum_delay=0);
+
 public:
 	Protocol(MessageChannel& channel) :
 			channel(channel),
@@ -394,7 +403,7 @@ public:
 
 	// Returns true on success, false on sending timeout or rate-limiting failure
 	bool send_event(const char *event_name, const char *data, int ttl,
-			EventType::Enum event_type, int flags, CompletionHandler handler)
+			EventType::Enum event_type, int flags, CompletionHandler handler, message_handle_t* message_result)
 	{
 		if (chunkedTransfer.is_updating())
 		{
@@ -402,7 +411,7 @@ public:
 			return false;
 		}
 		const ProtocolError error = publisher.send_event(channel, event_name, data, ttl, event_type, flags,
-				callbacks.millis(), std::move(handler));
+				callbacks.millis(), std::move(handler), message_result);
 		if (error != NO_ERROR)
 		{
 			handler.setError(toSystemError(error));

@@ -62,6 +62,12 @@ system_error_t toSystemError(ProtocolError error);
 
 typedef uint16_t chunk_index_t;
 
+typedef int32_t message_handle_t;
+
+const message_handle_t MESSAGE_HANDLE_INVALID = message_handle_t(-1);
+
+
+
 const chunk_index_t NO_CHUNKS_MISSING = 65535;
 const chunk_index_t MAX_CHUNKS        = 65535;
 const size_t MISSED_CHUNKS_TO_SEND    = 40u;
