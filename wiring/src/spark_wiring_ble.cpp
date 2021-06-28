@@ -2442,6 +2442,11 @@ private:
             }
             if (srLen == filterCustomDatalen) {
                 uint8_t* buf = (uint8_t*)malloc(srLen);
+                SCOPE_GUARD({
+                    if (buf) {
+                        free(buf);
+                    }
+                });
                 if (!buf) {
                     LOG(ERROR, "Failed to allocate memory!");
                     return false;
@@ -2453,6 +2458,11 @@ private:
             }
             if (advLen == filterCustomDatalen) {
                 uint8_t* buf = (uint8_t*)malloc(advLen);
+                SCOPE_GUARD({
+                    if (buf) {
+                        free(buf);
+                    }
+                });
                 if (!buf) {
                     LOG(ERROR, "Failed to allocate memory!");
                     return false;
