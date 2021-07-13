@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o errexit -o pipefail -o noclobber -o nounset
 
-VERSION="3.1.0"
+VERSION="4.0.0"
 
 function display_help ()
 {
