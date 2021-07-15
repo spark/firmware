@@ -46,6 +46,7 @@ using namespace particle;
 
 const uintptr_t SERIAL_NUMBER_OTP_ADDRESS = 0x00000000;
 const uintptr_t DEVICE_SECRET_OTP_ADDRESS = 0x00000010;
+const uintptr_t DEVICE_NCP_ID_OTP_ADDRESS = 0x00000020;
 
 const unsigned device_id_len = 12;
 
@@ -123,6 +124,20 @@ int hal_get_device_secret(char* data, size_t size, void* reserved)
     	data[HAL_DEVICE_SECRET_SIZE] = 0;
     }
     return HAL_DEVICE_SECRET_SIZE;
+}
+#endif /* HAL_DEVICE_ID_NO_DCT */
+
+#ifndef HAL_DEVICE_ID_NO_DCT
+int hal_get_device_ncp_id(uint8_t * ncpid)
+{
+    uint8_t otp_ncp_id;
+    int ret = FLASH_ReadOTP(DEVICE_NCP_ID_OTP_ADDRESS, (uint8_t*)&otp_ncp_id, sizeof(otp_ncp_id));
+    if(ret == 0)
+    {
+        *ncpid = otp_ncp_id;
+    }
+
+    return ret;
 }
 #endif /* HAL_DEVICE_ID_NO_DCT */
 
