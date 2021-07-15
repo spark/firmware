@@ -83,6 +83,8 @@ int hal_get_device_serial_number(char* str, size_t size, void* reserved);
 // TODO: Move this function to an appropriate module
 int hal_get_device_secret(char* data, size_t size, void* reserved);
 
+int hal_get_device_ncp_id(uint8_t * ncpid);
+
 /**
  * Get the device's hardware version.
  */
